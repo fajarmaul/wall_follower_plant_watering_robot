@@ -119,6 +119,7 @@ void demoOne(){
   analogWrite(IN_4, 70); ////Lower slower
 }
  void demoTwo(){
+  //Turning left if sensor value if low enough
   // turn on motor A
   analogWrite(IN_1, 65); //Lower slower
   digitalWrite(IN_2, LOW);  
@@ -127,6 +128,18 @@ void demoOne(){
   digitalWrite(IN_3, LOW);
   analogWrite(IN_4, 70); ////Lower slower
 }
+
+ void demoThree(){
+  //Turning Right if sensor value if low enough
+  // turn on motor A
+  analogWrite(IN_1, 78); //Lower slower
+  digitalWrite(IN_2, LOW);  
+  
+  // turn on motor B
+  digitalWrite(IN_3, LOW);
+  analogWrite(IN_4, 70); ////Lower slower
+}
+
 void stopMotor(){
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);  
@@ -230,16 +243,24 @@ void loop(){
   if(dist_front_sensor > 20){
     //Checking Which sensor is closer to wall
     if(dist_right_low_sensor < dist_left_low_sensor){
-      wallState = 2; 
+      wallState = 2;  //Closer to right wall
       }
     else {
-      wallState = 1;
+      wallState = 1; //Closer to left wall
       }
-    //Moving logic
-    if (! 13 <dist_right_low_sensor<20 ){
-      demoTwo();
-      }
-    else if(! 13 <dist_right_low_sensor<20 )
+
+    if(wallState = 1){
+      //Moving logic
+      if (dist_left_low_sensor > 20 ){
+        demoTwo();
+        }
+      else if (dist_left_low_sensor < 13 ){
+        demoThree();
+        }
+      else {
+        demoOne();
+        }
+      }          
   }
   else{
     Serial.print("!! UNSAFE !!");
@@ -247,7 +268,13 @@ void loop(){
     delay(1000);
     reverse();
     delay(500);
-    turnRight();
+    if (wallState == 1){
+      turnRight();  
+      }
+    else if (wallState == 2){
+//      turnLeft();
+      }
+    
 
   }
   
