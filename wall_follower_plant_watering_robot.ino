@@ -24,11 +24,23 @@
 #define COL_1_OUT 53
 
 //US
+#define US_FRONT_TX 14
+#define US_FRONT_RX 15
+
 #define US_KAN_BAW_TX 22
 #define US_KAN_BAW_RX 24
 #define US_KIRI_BAW_TX 26
 #define US_KIRI_BAW_RX 28
 
+#define US_KANAN_BACK_TX 30
+#define US_KANAN_BACK_RX 32
+#define US_KIRI_BACK_TX 34
+#define US_KIRI_BACK_RX 36
+
+#define US_KIRI_ATAS_TX 38
+#define US_KIRI_ATAS_RX 39
+#define US_KANAN_ATAS_TX 40
+#define US_KANAN_ATAS_RX 41
 //Buzzwer
 #define BUZZ_PIN 21
 
