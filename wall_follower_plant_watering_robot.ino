@@ -50,6 +50,11 @@ const int echo = 15;
 float dist_front_sensor;
 float dist_right_low_sensor;
 float dist_left_low_sensor;
+float dist_left_high_sensor;
+float dist_right_high_sensor;
+float dist_right_back_sensor;
+float dist_left_back_sensor;
+
 int frequency = 0;
 boolean turning = false;
 int wallState;
@@ -63,6 +68,15 @@ void setup(){
  pinMode(US_KAN_BAW_RX, INPUT);
  pinMode(US_KIRI_BAW_TX, OUTPUT);
  pinMode(US_KIRI_BAW_RX, INPUT);
+ pinMode(US_KIRI_ATAS_TX, OUTPUT);
+ pinMode(US_KIRI_ATAS_RX, INPUT);
+ pinMode(US_KANAN_ATAS_TX, OUTPUT);
+ pinMode(US_KANAN_ATAS_RX, INPUT);
+ pinMode(US_KANAN_BACK_TX, OUTPUT);
+ pinMode(US_KANAN_BACK_RX, INPUT);
+ pinMode(US_KIRI_BACK_TX, OUTPUT);
+ pinMode(US_KIRI_BACK_RX, INPUT);
+ 
  pinMode(IN_1, OUTPUT);
  pinMode(IN_2, OUTPUT);
  pinMode(IN_3, OUTPUT);
@@ -80,6 +94,10 @@ void setup(){
  dist_front_sensor = 0;
  dist_right_low_sensor = 0;
  dist_left_low_sensor = 0;
+ dist_left_high_sensor = 0;
+ dist_right_high_sensor = 0;
+ dist_right_back_sensor = 0;
+ dist_left_back_sensor = 0;
  wallState = 0; // 1= ngadep tembok kiri, 2 Tembok kanan
 }
 
@@ -159,8 +177,7 @@ void stopMotor(){
   digitalWrite(IN_4, LOW);
 }
 
-void frontSensor(){
- 
+void frontSensor(){ 
  digitalWrite(trig, LOW);
  delayMicroseconds(2);
  digitalWrite(trig, HIGH);
@@ -170,13 +187,15 @@ void frontSensor(){
  float time = pulseIn(echo, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_front_sensor = dist;
- Serial.print(dist_front_sensor);
- Serial.println(" cm");
- if(dist>500 or dist==0) Serial.println("Out of Range");
- else{
- Serial.print(dist);
- Serial.println(" cm");
- }
+ //Debug Purposes
+// Serial.print("FS: ");
+// Serial.print(dist_front_sensor);
+// Serial.println(" cm");
+// if(dist>500 or dist==0) Serial.println("FS Out of Range");
+// else{
+// Serial.print(dist);
+// Serial.println(" cm");
+// }
 }
 
 void rightLowSensor(){
@@ -218,12 +237,75 @@ void leftLowSensor(){
  Serial.println(" cm");
  if(dist>500 or dist==0) Serial.println("LL Out of Range");
  else{
- Serial.println("RL Sensor: ");
+ Serial.println("LL Sensor: ");
  Serial.print(dist);
  Serial.println(" cm");
  }
 }
 
+void leftHighSensor(){
+// delay(500);
+ digitalWrite(US_KIRI_ATAS_TX, LOW);
+ delayMicroseconds(2);
+ digitalWrite(US_KIRI_ATAS_TX, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(US_KIRI_ATAS_TX, LOW); 
+
+ float time = pulseIn(US_KIRI_ATAS_RX, HIGH);
+ float dist = ((float)time/2.0) / 29.1;
+ dist_left_high_sensor = dist;
+ Serial.println("Left High Sensor: ");
+ Serial.print(dist_left_high_sensor);
+ Serial.println(" cm");
+}
+
+void rightHighSensor(){
+// delay(500);
+ digitalWrite(US_KANAN_ATAS_TX, LOW);
+ delayMicroseconds(2);
+ digitalWrite(US_KANAN_ATAS_TX, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(US_KANAN_ATAS_TX, LOW); 
+
+ float time = pulseIn(US_KANAN_ATAS_RX, HIGH);
+ float dist = ((float)time/2.0) / 29.1;
+ dist_right_high_sensor = dist;
+ Serial.println("right High Sensor: ");
+ Serial.print(dist_right_high_sensor);
+ Serial.println(" cm");
+}
+
+void leftBackSensor(){
+// delay(500);
+ digitalWrite(US_KIRI_BACK_TX, LOW);
+ delayMicroseconds(2);
+ digitalWrite(US_KIRI_BACK_TX, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(US_KIRI_BACK_TX, LOW); 
+
+ float time = pulseIn(US_KIRI_BACK_RX, HIGH);
+ float dist = ((float)time/2.0) / 29.1;
+ dist_left_back_sensor = dist;
+ Serial.println("Left Back Sensor: ");
+ Serial.print(dist_left_back_sensor);
+ Serial.println(" cm");
+}
+
+void rightBackSensor(){
+// delay(500);
+ digitalWrite(US_KANAN_BACK_TX, LOW);
+ delayMicroseconds(2);
+ digitalWrite(US_KANAN_BACK_TX, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(US_KANAN_BACK_TX, LOW); 
+
+ float time = pulseIn(US_KANAN_BACK_RX, HIGH);
+ float dist = ((float)time/2.0) / 29.1;
+ dist_right_back_sensor = dist;
+ Serial.println("RIGHT BACK Sensor: ");
+ Serial.print(dist_right_back_sensor);
+ Serial.println(" cm");
+}
 void reverse(){
   digitalWrite(IN_1, LOW); //Lower slower
   analogWrite(IN_2, 63);  
@@ -248,10 +330,14 @@ void turnRight(){
 
 void loop(){
   frontSensor();
-  rightLowSensor();   
+//  frontSensor();
+//  rightLowSensor();   
   leftLowSensor();
+  leftBackSensor();
+//  rightHighSensor();
+//  leftHighSensor();
   //colorSense1();
-
+  demoOne();  
   if(dist_front_sensor > 20){
     //Checking Which sensor is closer to wall
     if(dist_right_low_sensor < dist_left_low_sensor){
@@ -260,8 +346,19 @@ void loop(){
     else {
       wallState = 1; //Closer to left wall
       }
-
+          
+    //cek di jalan
     if(wallState = 1){
+      //cek pot
+        // -> jalanin fungsi siram, abis siram, panggil fungsi maju 1/2 second, baru loop ulang
+      int diff = dist_left_back_sensor - dist_left_low_sensor;
+      if(diff >= 5.8){
+        stopMotor(); //harusnya fungsi siram
+        delay(1000);
+        demoOne();
+        delay(1000);        
+        }
+      
       //Moving logic
       if (dist_left_low_sensor > 20 ){
         demoTwo();
@@ -272,7 +369,11 @@ void loop(){
       else {
         demoOne();
         }
-      }          
+      }
+    //Wallstate = 2 == Right Wall  
+    else{
+      //do something
+      }           
   }
   else{
     Serial.print("!! UNSAFE !!");
