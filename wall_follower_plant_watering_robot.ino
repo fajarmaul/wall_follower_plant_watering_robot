@@ -7,6 +7,10 @@
 // B+ 11 -> PWM
 // B- 12
 
+//LEFT_LOW_SENSOR = LEFT_FRONT_SENSOR
+//RIGHT_LOW_SENSOR = RIGHT_FRONT_SENSOR
+
+
 //A =  -  || B = +
 
 //MOTOR 
@@ -49,7 +53,7 @@
 #define US_KANAN_ATAS_RX 41 //disconnected
 
 //Buzzwer
-#define BUZZ_PIN 6
+#define BUZZ_PIN 3 //6
 
 //Relay
 #define PUMP_1 8 //7 
@@ -71,7 +75,11 @@ int frequency = 0;
 boolean turning = false;
 int wallState;
 
+int red;
+int green;
+int blue;
 
+//=======================================================================SETUP====================================================================================================
 void setup(){
  Serial.begin(9600);
  pinMode(trig, OUTPUT);
@@ -126,124 +134,247 @@ void setup(){
  dist_right_back_sensor = 0;
  dist_left_back_sensor = 0;
  wallState = 0; // 1= ngadep tembok kiri, 2 Tembok kanan
+
+ red = 0;
+ green = 0;
+ blue = 0;
+
+  relayOff(PUMP_1);
+  relayOff(PUMP_2); 
+  digitalWrite(BUZZ_PIN, HIGH);
 }
 
-void relayOn(int digital){
-    digitalWrite(digital, LOW);
-  }
+//=======================================================================LOOP====================================================================================================
+
+
+void loop(){
+  frontSensor();
+  leftLowSensor();
+  leftBackSensor();
+  rightLowSensor();
+  rightBackSensor();
+  demoOne();
+  relayOff(PUMP_1);  
+
+  if(dist_right_low_sensor < dist_left_low_sensor){
+      wallState = 2;  //Closer to right wall
+      }
+  else{
+      wallState = 1; //Closer to left wall
+      }
+
+    //Safety check
+  if(dist_front_sensor < 20){
+    //UNSAFE       
+    Serial.println("UNSAFE");
+    stopMotor();
+    delay(1000);
+    //mundur 2 detik
+    if(wallState == 1){
+      reverse();
+      delay(1000);
+      turnRight();
+      delay(600);      
+      }
+    else{
+      reverse();
+      delay(1000);
+      turnLeft();
+      delay(600);      
+      }
+    }
+   else{
+    //SAFE    
+    if(wallState == 1){
+      Serial.println("SAFE wallstate 1");
+      //Wallstate 1, tembok kiri
+      float diff1 = abs(dist_left_back_sensor - dist_left_low_sensor);      
+      if((diff1 >= 5.8) && (dist_left_back_sensor > dist_left_low_sensor)){
+        Serial.println("diff 1 >= 5.8");
+        Serial.println(diff1);
+        //kalo ada perbedaan jarak yang kurang dari threshold antara depan dan belakang, ada pot, siram        
+        siramKiri();                 
+      }      
+      else{
+        Serial.println("wallstate 1 adjusting");
+      //jarak masih aman, adjust route
+      adjust();           
+      }      
+    }
+   else {
+    //wallstate = 2, tembok kanan
+    Serial.println("else wallstate tembok kanan");
+      float diff1 = abs(dist_right_back_sensor - dist_right_low_sensor);      
+      if((diff1 >= 5.8) && (dist_left_back_sensor > dist_left_low_sensor)){ //(dist_left_back_sensor - dist_left_low_sensor) < 5.8 && dist_left_low_sensor < 30
+      Serial.println("diff1 >= 5.8");
+      //kalo ada perbedaan jarak yang kurang dari threshold antara depan dan belakang, ada pot
+      siramKanan();      
+      }      
+      else{
+        Serial.println("wallstate 2 else adjust");
+      //jarak masih aman, adjust route
+      adjust();           
+      }
+    }
+  }  
   
-void relayOff(int digital){
-    digitalWrite(digital, HIGH);
+};
+  
+//=======================================================================FUNCTIONS====================================================================================================
+
+void adjust(){
+  Serial.println("ADJUST\n");
+  if(wallState == 1){
+    //adjust di kiri
+    if(dist_left_low_sensor < 10 && dist_left_back_sensor < 12){
+      demoOne(77, 1);
+      delay(200);
+      }
+    //else proceed as usual    
+    }
+  else{
+    if(dist_right_low_sensor < 10 && dist_right_back_sensor < 12){
+      demoOne(64, 2);
+      delay(200);
+      }
+      //else proceed as usual    
+    }
   }
 
-void colorSense1(){
+
+void colorSenseKiri(){
+  Serial.println("COLORSENSEKIRI\n");
   //Set Red filtered photodiodes to be read
   digitalWrite(COL_1_S2, LOW);
   digitalWrite(COL_1_S3, LOW);
+  
   // Reading the output frequency
   frequency = pulseIn(COL_1_OUT, LOW);
-//  frequency = map(frequency, 25,72,255,0);
+  //  frequency = map(frequency, 25,72,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("R= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.print("  ");
+  red = frequency;
   delay(100);
   // Setting Green filtered photodiodes to be read
   digitalWrite(COL_1_S2,HIGH);
   digitalWrite(COL_1_S3,HIGH);
   // Reading the output frequency
   frequency = pulseIn(COL_1_OUT, LOW);
-//  frequency = map(frequency, 30,90,255,0);
+  //frequency = map(frequency, 30,90,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("G= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.print("  ");
+  green = frequency;
   delay(100);
+  
   // Setting Blue filtered photodiodes to be read
   digitalWrite(COL_1_S2,LOW);
   digitalWrite(COL_1_S3,HIGH);
+  
   // Reading the output frequency
   frequency = pulseIn(COL_1_OUT, LOW);
-//  frequency = map(frequency, 25,70,255,0);
+  //frequency = map(frequency, 25,70,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("B= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.println("  ");
+  blue = frequency;
   delay(100);
 
 }
-
-void colorSense2(){
+//
+void colorSenseKanan(){
+  Serial.println("COLORSENSEKANAN\n");
   //Set Red filtered photodiodes to be read
   digitalWrite(COL_2_S2, LOW);
   digitalWrite(COL_2_S3, LOW);
+  
   // Reading the output frequency
   frequency = pulseIn(COL_2_OUT, LOW);
-//  frequency = map(frequency, 25,72,255,0);
+  //frequency = map(frequency, 25,72,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("R= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.print("  ");
+  red = frequency;
   delay(100);
+  
   // Setting Green filtered photodiodes to be read
   digitalWrite(COL_2_S2,HIGH);
   digitalWrite(COL_2_S3,HIGH);
+  
   // Reading the output frequency
   frequency = pulseIn(COL_2_OUT, LOW);
-//  frequency = map(frequency, 30,90,255,0);
+  //frequency = map(frequency, 30,90,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("G= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.print("  ");
+  green = frequency;
   delay(100);
+  
   // Setting Blue filtered photodiodes to be read
   digitalWrite(COL_2_S2,LOW);
   digitalWrite(COL_2_S3,HIGH);
   // Reading the output frequency
   frequency = pulseIn(COL_2_OUT, LOW);
-//  frequency = map(frequency, 25,70,255,0);
+  //frequency = map(frequency, 25,70,255,0);
+  
   // Printing the value on the serial monitor
   Serial.print("B= ");//printing name
   Serial.print(frequency);//printing RED color frequency
   Serial.println("  ");
+  blue = frequency;
   delay(100);
-
 }
 
 void demoOne(){
+  Serial.println("DEMOONE\n");
 // this function will run the motors in both directions at a fixed speed
   // turn on motor A
   //Beda 3 di v1, Motor A +3
-  analogWrite(IN_1, 93); //Lower slower
+  analogWrite(IN_1, 76); //Lower slower
   digitalWrite(IN_2, LOW);  
   
   // turn on motor B
   digitalWrite(IN_3, LOW);
-  analogWrite(IN_4, 90); ////Lower slower
-}
- void demoTwo(){
-  //Turning left if sensor value if low enough
-  // turn on motor A
-  analogWrite(IN_1, 65); //Lower slower
-  digitalWrite(IN_2, LOW);  
-  
-  // turn on motor B
-  digitalWrite(IN_3, LOW);
-  analogWrite(IN_4, 70); ////Lower slower
+  analogWrite(IN_4, 60); ////Lower slower
 }
 
- void demoThree(){
-  //Turning Right if sensor value if low enough
+void demoOne(int val, int key){
+//Key, 1 = kiri, 2 = kanan;
+  Serial.println("DEMOONEwParams\n");
+// this function will run the motors in both directions at a fixed speed
   // turn on motor A
-  analogWrite(IN_1, 78); //Lower slower
-  digitalWrite(IN_2, LOW);  
-  
-  // turn on motor B
-  digitalWrite(IN_3, LOW);
-  analogWrite(IN_4, 70); ////Lower slower
+  //Beda 3 di v1, Motor A +3
+  if(key == 1 ){
+    analogWrite(IN_1, val); //Lower slower
+    digitalWrite(IN_2, LOW);  
+    
+    // turn on motor B
+    digitalWrite(IN_3, LOW);
+    analogWrite(IN_4, 60); ////Lower slower  
+    }
+  else{
+    analogWrite(IN_1, 76); //Lower slower
+    digitalWrite(IN_2, LOW);  
+    
+    // turn on motor B
+    digitalWrite(IN_3, LOW);
+    analogWrite(IN_4, 66); ////Lower slower  
+    }  
 }
 
 void stopMotor(){
+  Serial.println("STOPMOTOR\n");
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);  
   digitalWrite(IN_3, LOW);
@@ -251,24 +382,19 @@ void stopMotor(){
 }
 
 void frontSensor(){ 
- digitalWrite(trig, LOW);
+ digitalWrite(US_FRONT_TX, LOW);
  delayMicroseconds(2);
- digitalWrite(trig, HIGH);
+ digitalWrite(US_FRONT_TX, HIGH);
  delayMicroseconds(10);
- digitalWrite(trig, LOW);
+ digitalWrite(US_FRONT_TX, LOW);
 
- float time = pulseIn(echo, HIGH);
+ float time = pulseIn(US_FRONT_RX, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_front_sensor = dist;
- //Debug Purposes
+// Debug Purposes
 // Serial.print("FS: ");
 // Serial.print(dist_front_sensor);
 // Serial.println(" cm");
-// if(dist>500 or dist==0) Serial.println("FS Out of Range");
-// else{
-// Serial.print(dist);
-// Serial.println(" cm");
-// }
 }
 
 void rightLowSensor(){
@@ -282,15 +408,10 @@ void rightLowSensor(){
  float time = pulseIn(US_KAN_BAW_RX, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_right_low_sensor = dist;
+ //Debugging purposes
 // Serial.println("Right Low Sensor: ");
 // Serial.print(dist_right_low_sensor);
 // Serial.println(" cm");
-// if(dist>500 or dist==0) Serial.println("RL Out of Range");
-// else{
-// Serial.println("RL Sensor: ");
-// Serial.print(dist);
-// Serial.println(" cm");
-// }
 }
 
 
@@ -305,47 +426,10 @@ void leftLowSensor(){
  float time = pulseIn(US_KIRI_BAW_RX, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_left_low_sensor = dist;
+ //Debugging purposes
 // Serial.println("Left Low Sensor: ");
 // Serial.print(dist_left_low_sensor);
 // Serial.println(" cm");
-// if(dist>500 or dist==0) Serial.println("LL Out of Range");
-// else{
-// Serial.println("LL Sensor: ");
-// Serial.print(dist);
-// Serial.println(" cm");
-// }
-}
-
-void leftHighSensor(){
-// delay(500);
- digitalWrite(US_KIRI_ATAS_TX, LOW);
- delayMicroseconds(2);
- digitalWrite(US_KIRI_ATAS_TX, HIGH);
- delayMicroseconds(10);
- digitalWrite(US_KIRI_ATAS_TX, LOW); 
-
- float time = pulseIn(US_KIRI_ATAS_RX, HIGH);
- float dist = ((float)time/2.0) / 29.1;
- dist_left_high_sensor = dist;
- Serial.println("Left High Sensor: ");
- Serial.print(dist_left_high_sensor);
- Serial.println(" cm");
-}
-
-void rightHighSensor(){
-// delay(500);
- digitalWrite(US_KANAN_ATAS_TX, LOW);
- delayMicroseconds(2);
- digitalWrite(US_KANAN_ATAS_TX, HIGH);
- delayMicroseconds(10);
- digitalWrite(US_KANAN_ATAS_TX, LOW); 
-
- float time = pulseIn(US_KANAN_ATAS_RX, HIGH);
- float dist = ((float)time/2.0) / 29.1;
- dist_right_high_sensor = dist;
- Serial.println("right High Sensor: ");
- Serial.print(dist_right_high_sensor);
- Serial.println(" cm");
 }
 
 void leftBackSensor(){
@@ -359,12 +443,14 @@ void leftBackSensor(){
  float time = pulseIn(US_KIRI_BACK_RX, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_left_back_sensor = dist;
- Serial.println("Left Back Sensor: ");
- Serial.print(dist_left_back_sensor);
- Serial.println(" cm");
+ //Debugging purposes
+// Serial.println("Left Back Sensor: ");
+// Serial.print(dist_left_back_sensor);
+// Serial.println(" cm");
 }
 
 void rightBackSensor(){
+  
 // delay(500);
  digitalWrite(US_KANAN_BACK_TX, LOW);
  delayMicroseconds(2);
@@ -375,143 +461,183 @@ void rightBackSensor(){
  float time = pulseIn(US_KANAN_BACK_RX, HIGH);
  float dist = ((float)time/2.0) / 29.1;
  dist_right_back_sensor = dist;
- Serial.println("RIGHT BACK Sensor: ");
- Serial.print(dist_right_back_sensor);
- Serial.println(" cm");
+ //Debugging purposes
+// Serial.println("RIGHT BACK Sensor: ");
+// Serial.print(dist_right_back_sensor);
+// Serial.println(" cm");
 }
 
 void reverse(){
+  Serial.println("REVERSE\n");
   digitalWrite(IN_1, LOW); //Lower slower
-  analogWrite(IN_2, 63);  
+  analogWrite(IN_2, 76);  //prev 63
 
-  analogWrite(IN_3, 60);
-  digitalWrite(IN_4, LOW); ////Lower slower
-  
-  delay(2000);
+  analogWrite(IN_3, 60); //prev 60
+  digitalWrite(IN_4, LOW); ////Lower slower   
 }
 
 void turnRight(){
+  Serial.println("TURNRIGHT\n");
   // turn on motor A
-  analogWrite(IN_1, 73); //Lower slower
+  analogWrite(IN_1, 93); //Lower slower
   digitalWrite(IN_2, LOW);  
   
   // turn on motor B
   digitalWrite(IN_3, LOW);
   analogWrite(IN_4, LOW); ////Lower slower
 
-  delay(1150);
+  delay(700);
 }
 
-void siram(){
+void turnLeft(){
+  Serial.println("TURNLEFT\n");
+   // turn on motor A
+  analogWrite(IN_1, LOW); //Lower slower
+  digitalWrite(IN_2, LOW);  
+  
+  // turn on motor B
+  digitalWrite(IN_3, LOW);
+  analogWrite(IN_4, 89); ////Lower slower
+
+  delay(700);
+  }
+void siramKanan(){
+  Serial.println("SIRAMKANAN\n");
   stopMotor();
-  delay(500);
+  buzzOn(100);
+  delay(1000);
   demoOne();
-  delay(400);
+  delay(500);  
   stopMotor();
+  //deteksi warna
+  colorSenseKanan();
+  Serial.print("R: ");
+  Serial.print(red);
+  Serial.print("G: ");
+  Serial.print(green);
+  Serial.print("B: ");
+  Serial.print(blue);
   //do nyalain pompa
-  delay(400);
+  //cek warna
+  if(red < blue && red < green){
+    buzzRed();
+    Serial.println("RED COLOR");
+    relayOn(PUMP_1);
+    delay(2000);
+    relayOff(PUMP_1);  
+    }
+  else if(blue < red && blue < green){
+    buzzBlue();
+    Serial.println("BLUE COLOR");
+    relayOn(PUMP_1);
+    delay(3000);
+    relayOff(PUMP_1);  
+    }
+  else{
+    buzzGreen();
+    Serial.println("RED COLOR");
+    relayOn(PUMP_1);
+    delay(4000);
+    relayOff(PUMP_1);  
+    }
+  demoOne();
+  delay(700);
+  }
+void siramKiri(){
+  Serial.println("SIRAMKIRI\n");
+  stopMotor();
+  buzzOn(100);
+  delay(1000);
+  demoOne();
+  delay(500);  
+  stopMotor();
+  //deteksi warna
+  colorSenseKiri();
+  Serial.print("R: ");
+  Serial.print(red);
+  Serial.print("G: ");
+  Serial.print(green);
+  Serial.print("B: ");
+  Serial.print(blue);
+  //do nyalain pompa
+  //cek warna
+  if(red < blue && red < green){
+    //red
+    buzzRed();
+    Serial.println("RED COLOR");
+    relayOn(PUMP_1);
+    delay(4000);
+    relayOff(PUMP_1);  
+    }
+  else if(blue < red && blue < green){
+    //blue
+    buzzBlue();
+    Serial.println("BLUE COLOR");
+    relayOn(PUMP_1);
+    delay(5000);
+    relayOff(PUMP_1);  
+    }
+  else{
+    //green
+    buzzGreen();
+    Serial.println("GREEN COLOR");
+    relayOn(PUMP_1);
+    delay(6000);
+    relayOff(PUMP_1);  
+    }
+  demoOne();
+  delay(700);
   }
 
-void greenLight(){
-  
-  }
-void blueLight(){
-  
-  }
-void redLight(){
-  
+void buzzOn(int val){
+  Serial.println("BUZZON\n");
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(val);
+  digitalWrite(BUZZ_PIN, HIGH);
   }
 
-void loop(){
-  //relay
+void buzzRed(){
+  Serial.println("BUZZRED\n");
+  //1 kali ngebuzz
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  }
+
+void buzzBlue(){
+  Serial.println("BUZZBLUE\n");
+  //2 kali ngebuzz
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  delay(600);
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  }
+
+void buzzGreen(){
+  Serial.println("BUZZGREEN\n");
+  //3 kali ngebuzz
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  delay(600);
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  delay(600);
+  digitalWrite(BUZZ_PIN, LOW);
+  delay(300);
+  digitalWrite(BUZZ_PIN, HIGH);
+  }
+
+void relayOn(int digital){
+    Serial.println("RELAY ON\n");
+    digitalWrite(digital, LOW);
+  }
 //  
-//  delay(1000);  
-//  relayOn(PUMP_1);
-//  relayOn(PUMP_2);
-//  delay(1000);
-  relayOff(PUMP_1);
-  relayOff(PUMP_2);    
-//  colorSense1();
-//  frontSensor();
-//  rightLowSensor();
-//  rightBackSensor(); 
-//  leftLowSensor();
-//  leftBackSensor();
-//  rightBackSensor();
-  demoOne();  
-//  if(dist_front_sensor > 20){
-//    //Checking Which sensor is closer to wall
-//    if(dist_right_low_sensor < dist_left_low_sensor){
-//      wallState = 2;  //Closer to right wall
-//      }
-//    else {
-//      wallState = 1; //Closer to left wall
-//      }
-//          
-//    //cek di jalan
-//    if(wallState = 1){
-//      //cek pot
-//        // -> jalanin fungsi siram, abis siram, panggil fungsi maju 1/2 second, baru loop ulang
-//      int diff = dist_left_back_sensor - dist_left_low_sensor;
-//      if(diff >= 5.8){        
-//        siram(); //harusnya fungsi siram
-//        delay(1000);
-//        demoOne();
-//        delay(1000);        
-//        }
-//      
-//      //Moving logic
-//      if (dist_left_low_sensor > 15 ){
-//        demoTwo();
-//        }
-//      else if (dist_left_low_sensor < 13 ){
-//        demoThree();
-//        }
-//      else {
-//        demoOne();
-//        }
-//      }
-//    //Wallstate = 2 == Right Wall  
-//    else{
-//      //do something
-//      }           
-//  }
-//  else{
-//    Serial.print("!! UNSAFE !!");
-//    stopMotor(); 
-//    delay(1000);
-//    reverse();
-//    delay(500);
-//    if (wallState == 1){
-//      turnRight();  
-//      }
-//    else if (wallState == 2){
-////      turnLeft();
-//      }
-//    
-//
-//  }
-  
-}
-
-//Debugging  Purposes
-
-//if(turning == false){
-//    if(dist_front_sensor > 20 ){
-//    Serial.print("!! SAFE !!");  
-//    demoOne();
-//  }
-//  else if(dist_front_sensor > 20 && dist_right_low_sensor < 17){
-//    Serial.print(" RIGHT NOT SAFE !! ");
-//    demoTwo();
-//  }
-//  else{
-//    Serial.print("!! UNSAFE !!");
-//    stopMotor(); 
-//    delay(1000);
-//    reverse();
-//    delay(500);
-//    turnRight();
-//  }
-//
-// }
+void relayOff(int digital){
+    Serial.println("RELAY OFF\n");
+    digitalWrite(digital, HIGH);
+  }
